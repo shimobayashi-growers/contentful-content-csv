@@ -83,7 +83,11 @@ export async function getContentTypes() {
   }));
 }
 
-export async function getEntries(contentTypeId: string, locale = 'ja-JP') {
+export async function getEntries(
+  contentTypeId: string,
+  locale = 'ja-JP',
+  selectedFields: string[] = []
+) {
   const environment = await getEnvironment();
 
   let allEntries: any[] = [];
@@ -115,19 +119,24 @@ export async function getEntries(contentTypeId: string, locale = 'ja-JP') {
   }
 
   return allEntries.map((entry) => {
-    const fields: Record<string, any> = {
-      id: entry.sys.id,
-      createdAt: entry.sys.createdAt,
-      updatedAt: entry.sys.updatedAt,
-    };
+    const fields: Record<string, any> = {};
 
-    Object.keys(entry.fields).forEach((fieldId) => {
-      const fieldValue = entry.fields[fieldId];
+    // 選択されたフィールドのみをエクスポート
+    selectedFields.forEach((fieldId) => {
+      if (fieldId === 'id') {
+        fields.id = entry.sys.id;
+      } else if (fieldId === 'createdAt') {
+        fields.createdAt = entry.sys.createdAt;
+      } else if (fieldId === 'updatedAt') {
+        fields.updatedAt = entry.sys.updatedAt;
+      } else if (entry.fields[fieldId] !== undefined) {
+        const fieldValue = entry.fields[fieldId];
 
-      if (fieldValue && typeof fieldValue === 'object' && locale in fieldValue) {
-        fields[fieldId] = fieldValue[locale];
-      } else {
-        fields[fieldId] = fieldValue;
+        if (fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue) && locale in fieldValue) {
+          fields[fieldId] = fieldValue[locale];
+        } else {
+          fields[fieldId] = fieldValue;
+        }
       }
     });
 

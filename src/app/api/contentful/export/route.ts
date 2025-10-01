@@ -4,7 +4,7 @@ import { convertToCSV } from '@/lib/csv';
 
 export async function POST(request: NextRequest) {
   try {
-    const { contentTypeId, locale } = await request.json();
+    const { contentTypeId, locale, selectedFields } = await request.json();
 
     if (!contentTypeId) {
       return NextResponse.json(
@@ -13,7 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const entries = await getEntries(contentTypeId, locale || 'ja-JP');
+    if (!selectedFields || selectedFields.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one field must be selected' },
+        { status: 400 }
+      );
+    }
+
+    const entries = await getEntries(contentTypeId, locale || 'ja-JP', selectedFields);
 
     if (entries.length === 0) {
       return NextResponse.json(
@@ -24,11 +31,13 @@ export async function POST(request: NextRequest) {
 
     const csv = convertToCSV(entries);
 
+    const filename = `${contentTypeId}_${new Date().toISOString().split('T')[0]}.csv`;
+
     return new NextResponse(csv, {
       status: 200,
       headers: {
-        'Content-Type': 'text/csv',
-        'Content-Disposition': `attachment; filename="${contentTypeId}_${new Date().toISOString().split('T')[0]}.csv"`,
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename=${filename}`,
       },
     });
   } catch (error) {
