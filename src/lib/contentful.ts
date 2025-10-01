@@ -87,9 +87,23 @@ export async function createOrUpdateEntry(
 
   Object.keys(fields).forEach((key) => {
     if (key !== 'id' && key !== 'createdAt' && key !== 'updatedAt') {
-      localizedFields[key] = {
-        [locale]: fields[key],
-      };
+      const value = fields[key];
+
+      // フィールド値がすでにlocale形式（オブジェクトでロケールキーを持つ）かチェック
+      if (
+        value &&
+        typeof value === 'object' &&
+        !Array.isArray(value) &&
+        Object.keys(value).some((k) => k === 'ja-JP' || k === 'en-US' || k.includes('-'))
+      ) {
+        // すでにlocale形式なのでそのまま使用
+        localizedFields[key] = value;
+      } else {
+        // locale形式でない場合は、指定されたlocaleでラップ
+        localizedFields[key] = {
+          [locale]: value,
+        };
+      }
     }
   });
 
