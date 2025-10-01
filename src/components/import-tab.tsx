@@ -12,10 +12,19 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Upload } from 'lucide-react';
+import { Upload, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import Papa from 'papaparse';
 
 interface ContentType {
   id: string;
@@ -32,13 +41,26 @@ export function ImportTab({ contentTypes }: ImportTabProps) {
   const [csvFile, setCsvFile] = useState<File | null>(null);
   const [isImporting, setIsImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
+  const [previewData, setPreviewData] = useState<any[]>([]);
+  const [showPreview, setShowPreview] = useState(false);
   const { toast } = useToast();
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && file.type === 'text/csv') {
       setCsvFile(file);
       setImportResult(null);
+
+      // プレビュー用にCSVをパース
+      const text = await file.text();
+      Papa.parse(text, {
+        header: true,
+        skipEmptyLines: true,
+        complete: (results) => {
+          setPreviewData(results.data.slice(0, 10)); // 最初の10行のみ
+          setShowPreview(true);
+        },
+      });
     } else {
       toast({
         title: 'エラー',
@@ -153,6 +175,48 @@ export function ImportTab({ contentTypes }: ImportTabProps) {
             <p className="text-sm text-center text-muted-foreground">
               データを処理しています...
             </p>
+          </div>
+        )}
+
+        {showPreview && previewData.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <Eye className="h-4 w-4" />
+                データプレビュー (最初の{previewData.length}行)
+              </Label>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPreview(false)}
+              >
+                非表示
+              </Button>
+            </div>
+            <div className="border rounded-md overflow-auto max-h-96">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    {Object.keys(previewData[0] || {}).map((key) => (
+                      <TableHead key={key} className="whitespace-nowrap">
+                        {key}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {previewData.map((row, idx) => (
+                    <TableRow key={idx}>
+                      {Object.values(row).map((value: any, cellIdx) => (
+                        <TableCell key={cellIdx} className="whitespace-nowrap">
+                          {String(value)}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         )}
 
