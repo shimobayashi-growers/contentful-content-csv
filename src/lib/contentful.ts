@@ -85,12 +85,36 @@ export async function getContentTypes() {
 
 export async function getEntries(contentTypeId: string, locale = 'ja-JP') {
   const environment = await getEnvironment();
-  const entries = await environment.getEntries({
-    content_type: contentTypeId,
-    limit: 1000,
-  });
 
-  return entries.items.map((entry) => {
+  let allEntries: any[] = [];
+  let skip = 0;
+  const limit = 100; // 1回のリクエストで取得する件数を減らす
+  let hasMore = true;
+
+  // ページネーションで全エントリーを取得
+  while (hasMore) {
+    const response = await environment.getEntries({
+      content_type: contentTypeId,
+      limit,
+      skip,
+    });
+
+    allEntries = allEntries.concat(response.items);
+
+    // 次のページがあるかチェック
+    if (response.items.length < limit) {
+      hasMore = false;
+    } else {
+      skip += limit;
+    }
+
+    // 安全のため、最大10000件で停止
+    if (allEntries.length >= 10000) {
+      break;
+    }
+  }
+
+  return allEntries.map((entry) => {
     const fields: Record<string, any> = {
       id: entry.sys.id,
       createdAt: entry.sys.createdAt,
