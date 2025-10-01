@@ -1,5 +1,41 @@
 import { createClient } from 'contentful-management';
 
+// Rich Text形式に変換するヘルパー関数
+function convertToRichText(text: string) {
+  if (!text) {
+    return {
+      nodeType: 'document',
+      data: {},
+      content: [],
+    };
+  }
+
+  // すでにRich Text形式かチェック
+  if (typeof text === 'object' && text.nodeType === 'document') {
+    return text;
+  }
+
+  // プレーンテキストをRich Text形式に変換
+  const paragraphs = String(text).split('\n').filter((line) => line.trim());
+
+  return {
+    nodeType: 'document',
+    data: {},
+    content: paragraphs.map((paragraph) => ({
+      nodeType: 'paragraph',
+      data: {},
+      content: [
+        {
+          nodeType: 'text',
+          value: paragraph,
+          marks: [],
+          data: {},
+        },
+      ],
+    })),
+  };
+}
+
 export function getContentfulClient() {
   const accessToken = process.env.CONTENTFUL_MANAGEMENT_TOKEN;
 
@@ -83,11 +119,41 @@ export async function createOrUpdateEntry(
 ) {
   const environment = await getEnvironment();
 
+  // Content Typeのフィールド定義を取得
+  const contentType = await environment.getContentType(contentTypeId);
+  const fieldDefinitions = new Map(
+    contentType.fields.map((field) => [field.id, field])
+  );
+
   const localizedFields: Record<string, any> = {};
 
   Object.keys(fields).forEach((key) => {
     if (key !== 'id' && key !== 'createdAt' && key !== 'updatedAt') {
-      const value = fields[key];
+      let value = fields[key];
+
+      // フィールド定義を取得
+      const fieldDef = fieldDefinitions.get(key);
+
+      // Rich Textフィールドの場合、テキストを自動変換
+      if (fieldDef && fieldDef.type === 'RichText') {
+        // locale形式の場合は各localeの値を変換
+        if (
+          value &&
+          typeof value === 'object' &&
+          !Array.isArray(value) &&
+          Object.keys(value).some((k) => k === 'ja-JP' || k === 'en-US' || k.includes('-'))
+        ) {
+          const convertedValue: Record<string, any> = {};
+          Object.keys(value).forEach((localeKey) => {
+            convertedValue[localeKey] = convertToRichText(value[localeKey]);
+          });
+          localizedFields[key] = convertedValue;
+          return;
+        } else {
+          // 通常のテキストの場合は変換してからlocaleでラップ
+          value = convertToRichText(value);
+        }
+      }
 
       // フィールド値がすでにlocale形式（オブジェクトでロケールキーを持つ）かチェック
       if (
