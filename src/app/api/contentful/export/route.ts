@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const csv = convertToCSV(entries);
+    // flattenせずにそのままCSV変換（すでにフィールド選択済み）
+    const csv = convertToCSV(entries, false);
 
     const filename = `${contentTypeId}_${new Date().toISOString().split('T')[0]}.csv`;
 

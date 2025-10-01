@@ -121,7 +121,7 @@ export async function getEntries(
   return allEntries.map((entry) => {
     const fields: Record<string, any> = {};
 
-    // 選択されたフィールドのみをエクスポート
+    // 選択されたフィールドの順序を保持してエクスポート
     selectedFields.forEach((fieldId) => {
       if (fieldId === 'id') {
         fields.id = entry.sys.id;
@@ -132,16 +132,85 @@ export async function getEntries(
       } else if (entry.fields[fieldId] !== undefined) {
         const fieldValue = entry.fields[fieldId];
 
-        if (fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue) && locale in fieldValue) {
-          fields[fieldId] = fieldValue[locale];
+        // localeがある場合は展開
+        if (fieldValue && typeof fieldValue === 'object' && !Array.isArray(fieldValue)) {
+          if (locale in fieldValue) {
+            // locale形式の値を取得
+            const localeValue = fieldValue[locale];
+            fields[fieldId] = serializeValue(localeValue);
+          } else if (fieldValue.sys && fieldValue.sys.id) {
+            // Contentful Reference (Link)
+            fields[fieldId] = fieldValue.sys.id;
+          } else {
+            // その他のオブジェクト（Rich Textなど）
+            fields[fieldId] = JSON.stringify(fieldValue);
+          }
+        } else if (Array.isArray(fieldValue)) {
+          // 配列はJSON文字列化
+          fields[fieldId] = JSON.stringify(fieldValue);
         } else {
           fields[fieldId] = fieldValue;
         }
+      } else {
+        // フィールドが存在しない場合は空文字
+        fields[fieldId] = '';
       }
     });
 
     return fields;
   });
+}
+
+// 値をシリアライズするヘルパー関数
+function serializeValue(value: any): string {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value);
+  }
+
+  if (Array.isArray(value)) {
+    return JSON.stringify(value);
+  }
+
+  if (typeof value === 'object') {
+    // Rich Textやその他のオブジェクト
+    if (value.nodeType === 'document') {
+      // Rich Textの場合、テキストコンテンツのみを抽出
+      return extractRichTextContent(value);
+    } else if (value.sys && value.sys.id) {
+      // Reference (Link)
+      return value.sys.id;
+    } else {
+      // その他のオブジェクトはJSON化
+      return JSON.stringify(value);
+    }
+  }
+
+  return String(value);
+}
+
+// Rich Textからテキストコンテンツを抽出
+function extractRichTextContent(richText: any): string {
+  if (!richText || !richText.content) {
+    return '';
+  }
+
+  const extractText = (node: any): string => {
+    if (node.nodeType === 'text') {
+      return node.value || '';
+    }
+
+    if (node.content && Array.isArray(node.content)) {
+      return node.content.map(extractText).join('');
+    }
+
+    return '';
+  };
+
+  return richText.content.map(extractText).join('\n');
 }
 
 export async function createOrUpdateEntry(

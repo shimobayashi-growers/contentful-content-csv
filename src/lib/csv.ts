@@ -4,13 +4,15 @@ export interface CsvRow {
   [key: string]: string | number | boolean | null | undefined;
 }
 
-export function convertToCSV(data: Record<string, any>[]): string {
+export function convertToCSV(data: Record<string, any>[], flatten = true): string {
   if (data.length === 0) {
     return '';
   }
 
-  const flattenedData = data.map((item) => flattenObject(item));
-  return Papa.unparse(flattenedData);
+  // flattenオプションがtrueの場合のみflatten処理を行う
+  const processedData = flatten ? data.map((item) => flattenObject(item)) : data;
+
+  return Papa.unparse(processedData);
 }
 
 export function parseCSV(csvString: string): CsvRow[] {
