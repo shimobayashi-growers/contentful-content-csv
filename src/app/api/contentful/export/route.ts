@@ -32,7 +32,10 @@ export async function POST(request: NextRequest) {
     // flattenせずにそのままCSV変換（すでにフィールド選択済み）
     const csv = convertToCSV(entries, false);
 
-    const filename = `${contentTypeId}_${new Date().toISOString().split('T')[0]}.csv`;
+    // ファイル名を日時形式（yyyymmddhhmmss）で生成
+    const now = new Date();
+    const timestamp = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}${String(now.getHours()).padStart(2, '0')}${String(now.getMinutes()).padStart(2, '0')}${String(now.getSeconds()).padStart(2, '0')}`;
+    const filename = `${contentTypeId}_${timestamp}.csv`;
 
     return new NextResponse(csv, {
       status: 200,
