@@ -67,8 +67,8 @@ export async function getEnvironment() {
 
 // Spaceのデフォルトlocaleを取得
 export async function getSpaceDefaultLocale(): Promise<string> {
-  const space = await getSpace();
-  const locales = await space.getLocales();
+  const environment = await getEnvironment();
+  const locales = await environment.getLocales();
   const defaultLocale = locales.items.find((l) => l.default);
   return defaultLocale?.code || 'ja';
 }

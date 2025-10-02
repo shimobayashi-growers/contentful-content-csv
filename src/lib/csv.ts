@@ -93,12 +93,28 @@ export function unflattenObject(flat: Record<string, any>): Record<string, any> 
     const lastKey = keys[keys.length - 1];
     let value = flat[key];
 
-    // Try to parse JSON arrays
-    if (typeof value === 'string' && value.startsWith('[') && value.endsWith(']')) {
-      try {
-        value = JSON.parse(value);
-      } catch {
-        // Keep as string if parsing fails
+    // Try to parse JSON strings (objects or arrays)
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if ((trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+          (trimmed.startsWith('[') && trimmed.endsWith(']'))) {
+        try {
+          const parsed = JSON.parse(value);
+          // If it's a locale-wrapped object like {"ja": "value"}, extract the locale value
+          if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+            const localeKeys = Object.keys(parsed);
+            // Check if it looks like a locale wrapper (single key that's a locale code)
+            if (localeKeys.length === 1 && /^[a-z]{2}(-[A-Z]{2})?$/.test(localeKeys[0])) {
+              value = parsed[localeKeys[0]];
+            } else {
+              value = parsed;
+            }
+          } else {
+            value = parsed;
+          }
+        } catch {
+          // Keep as string if parsing fails
+        }
       }
     }
 
