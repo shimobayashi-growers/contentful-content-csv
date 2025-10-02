@@ -6,6 +6,8 @@ export async function POST(request: NextRequest) {
   try {
     const { contentTypeId, locale, selectedFields } = await request.json();
 
+    console.log('Export request:', { contentTypeId, locale, selectedFields });
+
     if (!contentTypeId) {
       return NextResponse.json(
         { error: 'Content Type ID is required' },

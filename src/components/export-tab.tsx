@@ -112,6 +112,8 @@ export function ExportTab({ contentTypes }: ExportTabProps) {
 
     setIsExporting(true);
 
+    console.log('Exporting with fields:', selectedFields);
+
     try {
       const response = await fetch('/api/contentful/export', {
         method: 'POST',
