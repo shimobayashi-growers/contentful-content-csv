@@ -294,18 +294,24 @@ export async function createOrUpdateEntry(
       console.log(`Successfully updated entry: ${entryId}`);
       return updated;
     } catch (error: any) {
+      // エントリーが見つからない場合は、新規作成にフォールバック
+      if (error.status === 404 || error.statusText === 'Not Found') {
+        console.log(`Entry ${entryId} not found, creating as new entry instead`);
+        // 新規作成処理へ進む（entryIdをundefinedにして再帰呼び出し）
+        return createOrUpdateEntry(contentTypeId, undefined, fields, locale);
+      }
       console.error(`Failed to update entry ${entryId}:`, error.message);
       throw new Error(`Update failed for entry ${entryId}: ${error.message}`);
     }
   } else {
-    // IDがない場合は新規作成
+    // IDがない場合は新規作成（draft状態）
     try {
       console.log(`Creating new entry for content type: ${contentTypeId}`);
       const entry = await environment.createEntry(contentTypeId, {
         fields: localizedFields,
       });
-      await entry.publish();
-      console.log(`Successfully created entry: ${entry.sys.id}`);
+      // 新規作成時はdraft状態のまま（publishしない）
+      console.log(`Successfully created draft entry: ${entry.sys.id}`);
       return entry;
     } catch (error: any) {
       console.error(`Failed to create entry:`, error.message);
