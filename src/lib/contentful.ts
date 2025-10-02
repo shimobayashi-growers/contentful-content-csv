@@ -118,6 +118,13 @@ export async function getEntries(
     }
   }
 
+  // createdAtで降順ソート
+  allEntries.sort((a, b) => {
+    const dateA = new Date(a.sys.createdAt).getTime();
+    const dateB = new Date(b.sys.createdAt).getTime();
+    return dateB - dateA; // 降順
+  });
+
   return allEntries.map((entry) => {
     const fields: Record<string, any> = {};
 
