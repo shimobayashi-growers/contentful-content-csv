@@ -136,10 +136,12 @@ export function ExportTab({ contentTypes }: ExportTabProps) {
 
       // ファイル名はサーバーから返されるContent-Dispositionを使用
       const contentDisposition = response.headers.get('Content-Disposition');
-      let filename = `${selectedContentType}_${new Date().toISOString().split('T')[0]}.csv`;
+      let filename = `${selectedContentType}.csv`;
       if (contentDisposition) {
-        const match = contentDisposition.match(/filename="?(.+)"?/);
-        if (match) filename = match[1];
+        const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+        if (match && match[1]) {
+          filename = match[1].replace(/['"]/g, '');
+        }
       }
 
       a.download = filename;
