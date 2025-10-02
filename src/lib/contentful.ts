@@ -65,6 +65,14 @@ export async function getEnvironment() {
   return await space.getEnvironment(environmentId);
 }
 
+// Spaceのデフォルトlocaleを取得
+export async function getSpaceDefaultLocale(): Promise<string> {
+  const space = await getSpace();
+  const locales = await space.getLocales();
+  const defaultLocale = locales.items.find((l) => l.default);
+  return defaultLocale?.code || 'ja';
+}
+
 export async function getContentTypes() {
   const environment = await getEnvironment();
   const contentTypes = await environment.getContentTypes();
@@ -276,21 +284,32 @@ export async function createOrUpdateEntry(
   });
 
   if (entryId) {
+    // IDが指定されている場合は更新を試みる
     try {
+      console.log(`Attempting to update entry: ${entryId}`);
       const entry = await environment.getEntry(entryId);
       entry.fields = { ...entry.fields, ...localizedFields };
       const updated = await entry.update();
       await updated.publish();
+      console.log(`Successfully updated entry: ${entryId}`);
       return updated;
-    } catch (error) {
-      console.error(`Failed to update entry ${entryId}:`, error);
-      throw error;
+    } catch (error: any) {
+      console.error(`Failed to update entry ${entryId}:`, error.message);
+      throw new Error(`Update failed for entry ${entryId}: ${error.message}`);
     }
   } else {
-    const entry = await environment.createEntry(contentTypeId, {
-      fields: localizedFields,
-    });
-    await entry.publish();
-    return entry;
+    // IDがない場合は新規作成
+    try {
+      console.log(`Creating new entry for content type: ${contentTypeId}`);
+      const entry = await environment.createEntry(contentTypeId, {
+        fields: localizedFields,
+      });
+      await entry.publish();
+      console.log(`Successfully created entry: ${entry.sys.id}`);
+      return entry;
+    } catch (error: any) {
+      console.error(`Failed to create entry:`, error.message);
+      throw new Error(`Create failed: ${error.message}`);
+    }
   }
 }

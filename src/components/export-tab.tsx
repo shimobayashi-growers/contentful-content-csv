@@ -122,7 +122,7 @@ export function ExportTab({ contentTypes }: ExportTabProps) {
         },
         body: JSON.stringify({
           contentTypeId: selectedContentType,
-          locale: 'ja-JP',
+          // locale will be auto-detected from Space settings
           selectedFields,
         }),
       });

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getEntries } from '@/lib/contentful';
+import { getEntries, getSpaceDefaultLocale } from '@/lib/contentful';
 import { convertToCSV } from '@/lib/csv';
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const entries = await getEntries(contentTypeId, locale || 'ja-JP', selectedFields);
+    // Auto-detect Space's default locale if not provided
+    const targetLocale = locale || await getSpaceDefaultLocale();
+    console.log(`Using locale: ${targetLocale}`);
+
+    const entries = await getEntries(contentTypeId, targetLocale, selectedFields);
 
     if (entries.length === 0) {
       return NextResponse.json(

@@ -94,7 +94,7 @@ export function ImportTab({ contentTypes }: ImportTabProps) {
         body: JSON.stringify({
           contentTypeId: selectedContentType,
           csvData,
-          locale: 'ja-JP',
+          // locale will be auto-detected from Space settings
         }),
       });
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { createOrUpdateEntry } from '@/lib/contentful';
+import { createOrUpdateEntry, getSpaceDefaultLocale } from '@/lib/contentful';
 import { parseCSV, unflattenObject } from '@/lib/csv';
 
 export async function POST(request: NextRequest) {
@@ -22,6 +22,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Auto-detect Space's default locale if not provided
+    const targetLocale = locale || await getSpaceDefaultLocale();
+    console.log(`Using locale: ${targetLocale}`);
+
     const results = {
       success: [] as string[],
       errors: [] as { row: number; error: string }[],
@@ -38,15 +42,19 @@ export async function POST(request: NextRequest) {
         delete unflattened.createdAt;
         delete unflattened.updatedAt;
 
-        await createOrUpdateEntry(
+        const action = entryId ? 'update' : 'create';
+        console.log(`Row ${i + 1}: ${action} entry ${entryId || '(new)'}`);
+
+        const result = await createOrUpdateEntry(
           contentTypeId,
           entryId,
           unflattened,
-          locale || 'ja-JP'
+          targetLocale
         );
 
-        results.success.push(entryId || `Row ${i + 1}`);
+        results.success.push(entryId || result.sys.id);
       } catch (error: any) {
+        console.error(`Row ${i + 1} error:`, error.message);
         results.errors.push({
           row: i + 1,
           error: error.message || 'Unknown error',
