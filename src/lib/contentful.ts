@@ -319,3 +319,120 @@ export async function createOrUpdateEntry(
     }
   }
 }
+
+export async function getAssets(
+  locale = 'ja-JP',
+  selectedFields: string[] = []
+) {
+  const environment = await getEnvironment();
+
+  let allAssets: any[] = [];
+  let skip = 0;
+  const limit = 100;
+  let hasMore = true;
+
+  // ページネーションで全アセットを取得
+  while (hasMore) {
+    const response = await environment.getAssets({
+      limit,
+      skip,
+    });
+
+    allAssets = allAssets.concat(response.items);
+
+    // 次のページがあるかチェック
+    if (response.items.length < limit) {
+      hasMore = false;
+    } else {
+      skip += limit;
+    }
+
+    // 安全のため、最大10000件で停止
+    if (allAssets.length >= 10000) {
+      break;
+    }
+  }
+
+  return allAssets.map((asset) => {
+    const fields: Record<string, any> = {};
+
+    // 選択されたフィールドの順序を保持してエクスポート
+    selectedFields.forEach((fieldId) => {
+      if (fieldId === 'id') {
+        fields.id = asset.sys.id;
+      } else if (fieldId === 'createdAt') {
+        fields.createdAt = asset.sys.createdAt;
+      } else if (fieldId === 'updatedAt') {
+        fields.updatedAt = asset.sys.updatedAt;
+      } else if (fieldId === 'title') {
+        const titleField = asset.fields.title;
+        fields.title = titleField && titleField[locale] ? titleField[locale] : '';
+      } else if (fieldId === 'description') {
+        const descField = asset.fields.description;
+        fields.description = descField && descField[locale] ? descField[locale] : '';
+      } else if (fieldId === 'fileName') {
+        const fileField = asset.fields.file;
+        fields.fileName = fileField && fileField[locale] && fileField[locale].fileName ? fileField[locale].fileName : '';
+      } else if (fieldId === 'contentType') {
+        const fileField = asset.fields.file;
+        fields.contentType = fileField && fileField[locale] && fileField[locale].contentType ? fileField[locale].contentType : '';
+      } else if (fieldId === 'url') {
+        const fileField = asset.fields.file;
+        fields.url = fileField && fileField[locale] && fileField[locale].url ? fileField[locale].url : '';
+      } else if (fieldId === 'size') {
+        const fileField = asset.fields.file;
+        fields.size = fileField && fileField[locale] && fileField[locale].details && fileField[locale].details.size ? fileField[locale].details.size : '';
+      } else if (fieldId === 'width') {
+        const fileField = asset.fields.file;
+        fields.width = fileField && fileField[locale] && fileField[locale].details && fileField[locale].details.image && fileField[locale].details.image.width ? fileField[locale].details.image.width : '';
+      } else if (fieldId === 'height') {
+        const fileField = asset.fields.file;
+        fields.height = fileField && fileField[locale] && fileField[locale].details && fileField[locale].details.image && fileField[locale].details.image.height ? fileField[locale].details.image.height : '';
+      } else {
+        // 不明なフィールドは空文字
+        fields[fieldId] = '';
+      }
+    });
+
+    return fields;
+  });
+}
+
+export async function updateAssetMetadata(
+  assetId: string,
+  fields: Record<string, any>,
+  locale = 'ja-JP'
+) {
+  const environment = await getEnvironment();
+
+  try {
+    console.log(`Attempting to update asset: ${assetId}`);
+    const asset = await environment.getAsset(assetId);
+
+    // title と description のみ更新可能
+    const localizedFields: Record<string, any> = { ...asset.fields };
+
+    if (fields.title !== undefined) {
+      localizedFields.title = {
+        ...localizedFields.title,
+        [locale]: fields.title,
+      };
+    }
+
+    if (fields.description !== undefined) {
+      localizedFields.description = {
+        ...localizedFields.description,
+        [locale]: fields.description,
+      };
+    }
+
+    asset.fields = localizedFields;
+    const updated = await asset.update();
+    await updated.publish();
+    console.log(`Successfully updated asset: ${assetId}`);
+    return updated;
+  } catch (error: any) {
+    console.error(`Failed to update asset ${assetId}:`, error.message);
+    throw new Error(`Update failed for asset ${assetId}: ${error.message}`);
+  }
+}

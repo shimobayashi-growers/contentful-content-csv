@@ -1,6 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ExportTab } from '@/components/export-tab';
 import { ImportTab } from '@/components/import-tab';
+import { AssetExportTab } from '@/components/asset-export-tab';
+import { AssetImportTab } from '@/components/asset-import-tab';
 import { getContentTypes } from '@/lib/contentful';
 
 export const dynamic = 'force-dynamic';
@@ -72,18 +74,28 @@ export default async function Home() {
             </p>
           </div>
         ) : (
-          <Tabs defaultValue="export" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="export">エクスポート</TabsTrigger>
-              <TabsTrigger value="import">インポート</TabsTrigger>
+          <Tabs defaultValue="entry-export" className="w-full">
+            <TabsList className="grid w-full grid-cols-4">
+              <TabsTrigger value="entry-export">エントリーエクスポート</TabsTrigger>
+              <TabsTrigger value="entry-import">エントリーインポート</TabsTrigger>
+              <TabsTrigger value="asset-export">アセットエクスポート</TabsTrigger>
+              <TabsTrigger value="asset-import">アセットインポート</TabsTrigger>
             </TabsList>
 
-            <TabsContent value="export" className="mt-6">
+            <TabsContent value="entry-export" className="mt-6">
               <ExportTab contentTypes={contentTypes} />
             </TabsContent>
 
-            <TabsContent value="import" className="mt-6">
+            <TabsContent value="entry-import" className="mt-6">
               <ImportTab contentTypes={contentTypes} />
+            </TabsContent>
+
+            <TabsContent value="asset-export" className="mt-6">
+              <AssetExportTab />
+            </TabsContent>
+
+            <TabsContent value="asset-import" className="mt-6">
+              <AssetImportTab />
             </TabsContent>
           </Tabs>
         )}
