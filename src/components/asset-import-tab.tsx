@@ -17,6 +17,8 @@ export function AssetImportTab() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadResult, setUploadResult] = useState<any>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [currentFile, setCurrentFile] = useState<string>('');
+  const [processedCount, setProcessedCount] = useState(0);
   const { toast } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -64,30 +66,74 @@ export function AssetImportTab() {
     setIsUploading(true);
     setUploadResult(null);
     setUploadProgress(0);
+    setProcessedCount(0);
+    setCurrentFile('');
+
+    const totalFiles = selectedFiles.length;
+    const successIds: string[] = [];
+    const errors: { fileName: string; error: string }[] = [];
 
     try {
-      const formData = new FormData();
-      selectedFiles.forEach((file) => {
-        formData.append('files', file);
-      });
+      // ファイルを1つずつアップロード
+      for (let i = 0; i < selectedFiles.length; i++) {
+        const file = selectedFiles[i];
+        setCurrentFile(file.name);
+        setProcessedCount(i);
+        setUploadProgress(Math.round((i / totalFiles) * 100));
 
-      const response = await fetch('/api/contentful/assets/import', {
-        method: 'POST',
-        body: formData,
-      });
+        try {
+          const formData = new FormData();
+          formData.append('files', file);
 
-      const result = await response.json();
+          const response = await fetch('/api/contentful/assets/import', {
+            method: 'POST',
+            body: formData,
+          });
 
-      if (!response.ok) {
-        throw new Error(result.error || 'Upload failed');
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(result.error || 'Upload failed');
+          }
+
+          // 成功したファイルのIDを記録
+          if (result.results.success.length > 0) {
+            successIds.push(...result.results.success);
+          }
+
+          // エラーがあれば記録
+          if (result.results.errors.length > 0) {
+            errors.push(...result.results.errors);
+          }
+        } catch (error: any) {
+          console.error(`Failed to upload ${file.name}:`, error);
+          errors.push({
+            fileName: file.name,
+            error: error.message || 'Unknown error',
+          });
+        }
       }
 
-      setUploadResult(result);
+      // 最終結果を設定
+      setProcessedCount(totalFiles);
       setUploadProgress(100);
+      setCurrentFile('');
+
+      const finalResult = {
+        total: totalFiles,
+        successCount: successIds.length,
+        errorCount: errors.length,
+        results: {
+          success: successIds,
+          errors: errors,
+        },
+      };
+
+      setUploadResult(finalResult);
 
       toast({
         title: '完了',
-        description: `${result.successCount}件のアセットをアップロードしました`,
+        description: `${successIds.length}件のアセットをアップロードしました`,
       });
 
       // 成功後、ファイルリストをクリア
@@ -180,9 +226,16 @@ export function AssetImportTab() {
         {isUploading && (
           <div className="space-y-2">
             <Progress value={uploadProgress} className="w-full" />
-            <p className="text-sm text-center text-muted-foreground">
-              ファイルをアップロードしています...
-            </p>
+            <div className="text-sm text-center text-muted-foreground space-y-1">
+              <p>
+                処理中: {processedCount + 1} / {selectedFiles.length}件
+              </p>
+              {currentFile && (
+                <p className="text-xs truncate">
+                  現在のファイル: {currentFile}
+                </p>
+              )}
+            </div>
           </div>
         )}
 
