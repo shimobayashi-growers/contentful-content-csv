@@ -38,12 +38,15 @@ export async function POST(request: NextRequest) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
+        // Remove file extension from title
+        const titleWithoutExtension = file.name.replace(/\.[^/.]+$/, '');
+
         // Create asset in Contentful
         const asset = await createAsset(
           buffer,
           file.name,
           file.type,
-          file.name, // Use filename as title
+          titleWithoutExtension, // Use filename without extension as title
           undefined, // No description
           targetLocale
         );

@@ -445,27 +445,19 @@ export async function createAsset(
   description?: string,
   locale = 'ja-JP'
 ) {
-  const client = getContentfulClient();
-  const spaceId = process.env.CONTENTFUL_SPACE_ID;
-  const environmentId = process.env.CONTENTFUL_ENVIRONMENT || 'master';
-
-  if (!spaceId) {
-    throw new Error('CONTENTFUL_SPACE_ID is not set');
-  }
-
   try {
     console.log(`Creating asset: ${fileName}`);
 
+    const environment = await getEnvironment();
+
     // 1. Upload file to Contentful Upload API
-    const upload = await client.upload.create(
-      { spaceId, environmentId },
-      { file }
-    );
+    const upload = await environment.createUpload({
+      file,
+    });
 
     console.log(`File uploaded with ID: ${upload.sys.id}`);
 
     // 2. Create asset and link to uploaded file
-    const environment = await getEnvironment();
     const asset = await environment.createAsset({
       fields: {
         title: {
