@@ -436,3 +436,79 @@ export async function updateAssetMetadata(
     throw new Error(`Update failed for asset ${assetId}: ${error.message}`);
   }
 }
+
+export async function createAsset(
+  file: Buffer,
+  fileName: string,
+  contentType: string,
+  title?: string,
+  description?: string,
+  locale = 'ja-JP'
+) {
+  const client = getContentfulClient();
+  const spaceId = process.env.CONTENTFUL_SPACE_ID;
+  const environmentId = process.env.CONTENTFUL_ENVIRONMENT || 'master';
+
+  if (!spaceId) {
+    throw new Error('CONTENTFUL_SPACE_ID is not set');
+  }
+
+  try {
+    console.log(`Creating asset: ${fileName}`);
+
+    // 1. Upload file to Contentful Upload API
+    const upload = await client.upload.create(
+      { spaceId, environmentId },
+      { file }
+    );
+
+    console.log(`File uploaded with ID: ${upload.sys.id}`);
+
+    // 2. Create asset and link to uploaded file
+    const environment = await getEnvironment();
+    const asset = await environment.createAsset({
+      fields: {
+        title: {
+          [locale]: title || fileName,
+        },
+        description: description
+          ? {
+              [locale]: description,
+            }
+          : undefined,
+        file: {
+          [locale]: {
+            contentType,
+            fileName,
+            uploadFrom: {
+              sys: {
+                type: 'Link',
+                linkType: 'Upload',
+                id: upload.sys.id,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    console.log(`Asset created with ID: ${asset.sys.id}`);
+
+    // 3. Process the asset
+    const processedAsset = await asset.processForLocale(locale, {
+      processingCheckWait: 2000,
+    });
+
+    console.log(`Asset processed: ${processedAsset.sys.id}`);
+
+    // 4. Publish the asset
+    const publishedAsset = await processedAsset.publish();
+
+    console.log(`Asset published: ${publishedAsset.sys.id}`);
+
+    return publishedAsset;
+  } catch (error: any) {
+    console.error(`Failed to create asset ${fileName}:`, error.message);
+    throw new Error(`Create asset failed for ${fileName}: ${error.message}`);
+  }
+}
