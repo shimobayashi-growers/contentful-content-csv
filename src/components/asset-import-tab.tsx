@@ -10,7 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 
-const MAX_FILES = 20;
+const MAX_FILES = 50;
 
 export function AssetImportTab() {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);

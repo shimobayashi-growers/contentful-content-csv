@@ -13,9 +13,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (files.length > 20) {
+    if (files.length > 50) {
       return NextResponse.json(
-        { error: 'Maximum 20 files allowed' },
+        { error: 'Maximum 50 files allowed' },
         { status: 400 }
       );
     }
