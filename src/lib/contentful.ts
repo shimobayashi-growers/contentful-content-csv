@@ -322,7 +322,8 @@ export async function createOrUpdateEntry(
 
 export async function getAssets(
   locale = 'ja-JP',
-  selectedFields: string[] = []
+  selectedFields: string[] = [],
+  maxLimit?: number
 ) {
   const environment = await getEnvironment();
 
@@ -339,6 +340,12 @@ export async function getAssets(
     });
 
     allAssets = allAssets.concat(response.items);
+
+    // 指定件数に達したら停止
+    if (maxLimit && allAssets.length >= maxLimit) {
+      allAssets = allAssets.slice(0, maxLimit);
+      break;
+    }
 
     // 次のページがあるかチェック
     if (response.items.length < limit) {

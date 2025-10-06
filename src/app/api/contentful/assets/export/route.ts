@@ -4,9 +4,9 @@ import { convertToCSV } from '@/lib/csv';
 
 export async function POST(request: NextRequest) {
   try {
-    const { locale, selectedFields } = await request.json();
+    const { locale, selectedFields, limit } = await request.json();
 
-    console.log('Asset export request:', { locale, selectedFields });
+    console.log('Asset export request:', { locale, selectedFields, limit });
 
     if (!selectedFields || selectedFields.length === 0) {
       return NextResponse.json(
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     const targetLocale = locale || await getSpaceDefaultLocale();
     console.log(`Using locale: ${targetLocale}`);
 
-    const assets = await getAssets(targetLocale, selectedFields);
+    const assets = await getAssets(targetLocale, selectedFields, limit);
 
     if (assets.length === 0) {
       return NextResponse.json(

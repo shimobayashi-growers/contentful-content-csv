@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { Download } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -37,6 +38,7 @@ export function AssetExportTab() {
     'createdAt',
     'updatedAt',
   ]);
+  const [limit, setLimit] = useState<string>('');
   const [isExporting, setIsExporting] = useState(false);
   const { toast } = useToast();
 
@@ -71,6 +73,8 @@ export function AssetExportTab() {
     console.log('Exporting assets with fields:', selectedFields);
 
     try {
+      const limitNumber = limit ? parseInt(limit, 10) : undefined;
+
       const response = await fetch('/api/contentful/assets/export', {
         method: 'POST',
         headers: {
@@ -79,6 +83,7 @@ export function AssetExportTab() {
         body: JSON.stringify({
           // locale will be auto-detected from Space settings
           selectedFields,
+          limit: limitNumber,
         }),
       });
 
@@ -139,6 +144,21 @@ export function AssetExportTab() {
         <CardTitle>アセットをCSVにエクスポート</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="limit">エクスポート件数（空欄で全件）</Label>
+          <Input
+            id="limit"
+            type="number"
+            placeholder="例: 100"
+            value={limit}
+            onChange={(e) => setLimit(e.target.value)}
+            min="1"
+          />
+          <p className="text-xs text-muted-foreground">
+            件数を指定しない場合は全件エクスポートします（最大10,000件）
+          </p>
+        </div>
+
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <Label>エクスポートするフィールド</Label>
