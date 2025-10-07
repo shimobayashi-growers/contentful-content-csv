@@ -1,6 +1,128 @@
 import { createClient } from 'contentful-management';
 
-// Rich Text形式に変換するヘルパー関数
+// インラインマークダウンを解析してRich Textのcontentノードに変換
+function parseInlineMarkdown(text: string): any[] {
+  const nodes: any[] = [];
+  let currentIndex = 0;
+
+  // 太字 **text** または __text__
+  // リンク [text](url)
+  // イタリック *text* または _text_
+  const patterns = [
+    { regex: /\*\*(.+?)\*\*/g, mark: 'bold' },
+    { regex: /__(.+?)__/g, mark: 'bold' },
+    { regex: /\*(.+?)\*/g, mark: 'italic' },
+    { regex: /_(.+?)_/g, mark: 'italic' },
+    { regex: /\[(.+?)\]\((.+?)\)/g, type: 'link' },
+  ];
+
+  const matches: Array<{ index: number; length: number; value: string; marks?: any[]; data?: any; nodeType?: string; uri?: string }> = [];
+
+  // すべてのパターンにマッチする箇所を見つける
+  patterns.forEach((pattern) => {
+    const regex = new RegExp(pattern.regex);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (pattern.type === 'link') {
+        matches.push({
+          index: match.index,
+          length: match[0].length,
+          value: match[1],
+          nodeType: 'hyperlink',
+          uri: match[2],
+        });
+      } else {
+        matches.push({
+          index: match.index,
+          length: match[0].length,
+          value: match[1],
+          marks: [{ type: pattern.mark }],
+        });
+      }
+    }
+  });
+
+  // インデックス順にソート
+  matches.sort((a, b) => a.index - b.index);
+
+  // 重複を削除（最初にマッチしたものを優先）
+  const filteredMatches: typeof matches = [];
+  let lastEnd = -1;
+  matches.forEach((match) => {
+    if (match.index >= lastEnd) {
+      filteredMatches.push(match);
+      lastEnd = match.index + match.length;
+    }
+  });
+
+  // テキストを分割してノードを構築
+  filteredMatches.forEach((match) => {
+    // マッチ前のプレーンテキスト
+    if (match.index > currentIndex) {
+      const plainText = text.substring(currentIndex, match.index);
+      if (plainText) {
+        nodes.push({
+          nodeType: 'text',
+          value: plainText,
+          marks: [],
+          data: {},
+        });
+      }
+    }
+
+    // マッチ部分
+    if (match.nodeType === 'hyperlink') {
+      nodes.push({
+        nodeType: 'hyperlink',
+        data: { uri: match.uri },
+        content: [
+          {
+            nodeType: 'text',
+            value: match.value,
+            marks: [],
+            data: {},
+          },
+        ],
+      });
+    } else {
+      nodes.push({
+        nodeType: 'text',
+        value: match.value,
+        marks: match.marks || [],
+        data: {},
+      });
+    }
+
+    currentIndex = match.index + match.length;
+  });
+
+  // 残りのプレーンテキスト
+  if (currentIndex < text.length) {
+    const plainText = text.substring(currentIndex);
+    if (plainText) {
+      nodes.push({
+        nodeType: 'text',
+        value: plainText,
+        marks: [],
+        data: {},
+      });
+    }
+  }
+
+  // マッチがない場合は単純なテキストノード
+  if (nodes.length === 0) {
+    nodes.push({
+      nodeType: 'text',
+      value: text,
+      marks: [],
+      data: {},
+    });
+  }
+
+  return nodes;
+}
+
+// Rich Text形式に変換するヘルパー関数（マークダウン対応）
 function convertToRichText(text: string) {
   if (!text) {
     return {
@@ -15,24 +137,119 @@ function convertToRichText(text: string) {
     return text;
   }
 
-  // プレーンテキストをRich Text形式に変換
-  const paragraphs = String(text).split('\n').filter((line) => line.trim());
+  // マークダウンをRich Text形式に変換
+  const lines = String(text).split('\n');
+  const content: any[] = [];
+  let listItems: any[] = [];
+  let orderedListItems: any[] = [];
+
+  const flushList = () => {
+    if (listItems.length > 0) {
+      content.push({
+        nodeType: 'unordered-list',
+        data: {},
+        content: listItems,
+      });
+      listItems = [];
+    }
+    if (orderedListItems.length > 0) {
+      content.push({
+        nodeType: 'ordered-list',
+        data: {},
+        content: orderedListItems,
+      });
+      orderedListItems = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmedLine = line.trim();
+
+    // 空行は段落の区切りとして扱う
+    if (!trimmedLine) {
+      flushList();
+      return;
+    }
+
+    // 見出し（## から ######）
+    const headingMatch = trimmedLine.match(/^(#{1,6})\s+(.+)$/);
+    if (headingMatch) {
+      flushList();
+      const level = headingMatch[1].length;
+      content.push({
+        nodeType: `heading-${level}`,
+        data: {},
+        content: parseInlineMarkdown(headingMatch[2]),
+      });
+      return;
+    }
+
+    // 順序付きリスト（1. で始まる）
+    const orderedListMatch = trimmedLine.match(/^\d+\.\s+(.+)$/);
+    if (orderedListMatch) {
+      if (listItems.length > 0) {
+        flushList();
+      }
+      orderedListItems.push({
+        nodeType: 'list-item',
+        data: {},
+        content: [
+          {
+            nodeType: 'paragraph',
+            data: {},
+            content: parseInlineMarkdown(orderedListMatch[1]),
+          },
+        ],
+      });
+      return;
+    }
+
+    // 順序なしリスト（- または * で始まる）
+    const unorderedListMatch = trimmedLine.match(/^[-*]\s+(.+)$/);
+    if (unorderedListMatch) {
+      if (orderedListItems.length > 0) {
+        flushList();
+      }
+      listItems.push({
+        nodeType: 'list-item',
+        data: {},
+        content: [
+          {
+            nodeType: 'paragraph',
+            data: {},
+            content: parseInlineMarkdown(unorderedListMatch[1]),
+          },
+        ],
+      });
+      return;
+    }
+
+    // 水平線
+    if (trimmedLine.match(/^(-{3,}|\*{3,}|_{3,})$/)) {
+      flushList();
+      content.push({
+        nodeType: 'hr',
+        data: {},
+        content: [],
+      });
+      return;
+    }
+
+    // 通常の段落
+    flushList();
+    content.push({
+      nodeType: 'paragraph',
+      data: {},
+      content: parseInlineMarkdown(trimmedLine),
+    });
+  });
+
+  flushList();
 
   return {
     nodeType: 'document',
     data: {},
-    content: paragraphs.map((paragraph) => ({
-      nodeType: 'paragraph',
-      data: {},
-      content: [
-        {
-          nodeType: 'text',
-          value: paragraph,
-          marks: [],
-          data: {},
-        },
-      ],
-    })),
+    content,
   };
 }
 
@@ -263,6 +480,12 @@ export async function createOrUpdateEntry(
           // 通常のテキストの場合は変換してからlocaleでラップ
           value = convertToRichText(value);
         }
+      }
+
+      // Arrayフィールドの場合、カンマ区切り文字列を配列に変換
+      if (fieldDef && fieldDef.type === 'Array' && typeof value === 'string' && value) {
+        // カンマ区切りの文字列を配列に変換
+        value = value.split(',').map((item) => item.trim()).filter((item) => item);
       }
 
       // Linkフィールド（Asset参照、Entry参照）の場合、文字列IDをLink形式に変換
