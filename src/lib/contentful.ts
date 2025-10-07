@@ -265,6 +265,18 @@ export async function createOrUpdateEntry(
         }
       }
 
+      // Linkフィールド（Asset参照、Entry参照）の場合、文字列IDをLink形式に変換
+      if (fieldDef && fieldDef.type === 'Link' && typeof value === 'string' && value) {
+        const linkType = fieldDef.linkType || 'Asset'; // linkTypeを取得、デフォルトはAsset
+        value = {
+          sys: {
+            type: 'Link',
+            linkType: linkType,
+            id: value,
+          },
+        };
+      }
+
       // フィールド値がすでにlocale形式（オブジェクトでロケールキーを持つ）かチェック
       if (
         value &&
