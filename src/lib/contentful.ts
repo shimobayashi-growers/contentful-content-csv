@@ -461,6 +461,19 @@ export async function createOrUpdateEntry(
       // フィールド定義を取得
       const fieldDef = fieldDefinitions.get(key);
 
+      // Dateフィールドの場合、ISO 8601形式に変換
+      if (fieldDef && fieldDef.type === 'Date' && typeof value === 'string' && value) {
+        try {
+          // 日本語形式の日付を解析 (例: "2025/10/23 9:25")
+          const date = new Date(value);
+          if (!isNaN(date.getTime())) {
+            value = date.toISOString();
+          }
+        } catch (error) {
+          console.warn(`Failed to parse date for field ${key}: ${value}`);
+        }
+      }
+
       // Rich Textフィールドの場合、テキストを自動変換
       if (fieldDef && fieldDef.type === 'RichText') {
         // locale形式の場合は各localeの値を変換
